@@ -14,7 +14,7 @@ __contact__ = 'danhmcinerney gmail'
 
 from gevent import monkey
 monkey.patch_all()
-
+#"7061756c".decode("hex")
 import requests
 import ast
 import gevent
@@ -53,25 +53,17 @@ class find_http_proxy():
         ''' Gets raw high anonymity (L1) proxy data then calls make_proxy_list()
         Currently parses data from gatherproxy.com and letushide.com '''
 
-        if not self.quiet:
-            print '[*] Your accurate external IP: %s' % self.externalip
-
-        letushide_list = self.letushide_req()
-        if not self.quiet:
-            print '[*] letushide.com: %s proxies' % str(len(letushide_list))
 
          # Has a login now :(
         gatherproxy_list = self.gatherproxy_req()
         if not self.quiet:
             print '[*] gatherproxy.com: %s proxies' % str(len(gatherproxy_list))
 
-        checkerproxy_list = self.checkerproxy_req()
-        if not self.quiet:
-            print '[*] checkerproxy.net: %s proxies' % str(len(checkerproxy_list))
 
-        self.proxy_list.append(letushide_list)
+
+
         self.proxy_list.append(gatherproxy_list)
-        self.proxy_list.append(checkerproxy_list)
+
 
         # Flatten list of lists (1 master list containing 1 list of ips per proxy website)
         self.proxy_list = [ips for proxy_site in self.proxy_list for ips in proxy_site]
@@ -85,83 +77,13 @@ class find_http_proxy():
 
         self.proxy_checker()
 
-    def checkerproxy_req(self):
-        ''' Make the request to checkerproxy and create a master list from that site '''
-        cp_ips = []
-        try:
-            url = 'http://checkerproxy.net/all_proxy'
-            r = requests.get(url, headers=self.headers)
-            html = r.text
-        except Exception:
-            print '[!] Failed to get reply from %s' % url
-            checkerproxy_list = []
-            return checkerproxy_list
 
-        checkerproxy_list = self.parse_checkerproxy(html)
-        return checkerproxy_list
 
-    def parse_checkerproxy(self, html):
-        ''' Only get elite proxies from checkerproxy '''
-        ips = []
-        soup = BeautifulSoup(html)
-        for tr in soup.findAll('tr'):
-            if len(tr) == 19:
-                ip_found = False
-                elite = False
-                ip_port = None
-                tds = tr.findAll('td')
-                for td in tds:
-                    if ':' in td.text:
-                        ip_found = True
-                        ip_port_re = re.match('(\d{1,3}\.){3}\d{1,3}:\d{1,5}', td.text)
-                        if ip_port_re:
-                            ip_port = ip_port_re.group()
-                        if not ip_port:
-                            ip_found = False
-                    if 'Elite' in td.text:
-                        elite = True
-                    if ip_found == True and elite == True:
-                        ips.append(str(ip_port))
-                        break
-        return ips
 
-    def letushide_req(self):
-        ''' Make the request to the proxy site and create a master list from that site '''
-        letushide_ips = []
-        for i in xrange(1,20): # can search maximum of 20 pages
-            try:
-                url = 'http://letushide.com/filter/http,hap,all/%s/list_of_free_HTTP_High_Anonymity_proxy_servers' % str(i)
-                r = requests.get(url, headers=self.headers)
-                html = r.text
-                ips = self.parse_letushide(html)
 
-                # Check html for a link to the next page
-                if '/filter/http,hap,all/%s/list_of_free_HTTP_High_Anonymity_proxy_servers' % str(i+1) in html:
-                    pass
-                else:
-                    letushide_ips.append(ips)
-                    break
-                letushide_ips.append(ips)
-            except:
-                print '[!] Failed get reply from %s' % url
-                break
 
-        # Flatten list of lists (1 list containing 1 list of ips for each page)
-        letushide_list = [item for sublist in letushide_ips for item in sublist]
-        return letushide_list
 
-    def parse_letushide(self, html):
-        ''' Parse out list of IP:port strings from the html '''
-        # \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}  -  matches IP addresses
-        # </a></td><td>  -  is in between the IP and the port
-        # .*?<  -  match all text (.) for as many characters as possible (*) but don't be greedy (?) and stop at the next greater than (<)
-        raw_ips = re.findall('\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}</a></td><td>.*?<', html)
-        ips = []
-        for ip in raw_ips:
-            ip = ip.replace('</a></td><td>', ':')
-            ip = ip.strip('<')
-            ips.append(ip)
-        return ips
+
 
     def gatherproxy_req(self):
         url = 'http://gatherproxy.com/proxylist/anonymity/?t=Elite'
@@ -186,8 +108,10 @@ class find_http_proxy():
                 l = l.replace('null', 'None')
                 l = l.strip()
                 l = ast.literal_eval(l)
+                xhm = int(l["PROXY_PORT"], 16)
+                proxy = '%s:%s' % (l["PROXY_IP"], str(xhm))
+                #"7061756c".decode("hex")
 
-                proxy = '%s:%s' % (l["PROXY_IP"], l["PROXY_PORT"])
                 gatherproxy_list.append(proxy)
                 #ctry = l["PROXY_COUNTRY"]
         return gatherproxy_list
@@ -209,7 +133,7 @@ class find_http_proxy():
         #first_3_octets = '.'.join(proxy_split[:3])+'.'
 
         results = []
-        urls = ['http://danmcinerney.org/ip.php', 'http://myip.dnsdynamic.org', 'https://www.astrill.com/what-is-my-ip-address.php', 'http://danmcinerney.org/headers.php']
+        urls = ['http://myip.dnsdynamic.org']
         for url in urls:
             try:
                 check = requests.get(url,
@@ -321,17 +245,21 @@ class find_http_proxy():
         cc = 'N/A'
 
         try:
-            r = requests.get('http://www.geoiptool.com/en/?IP=%s' % proxyip, headers=self.headers)
+            r = requests.get('http://who.is/whois-ip/ip-address/%s' % proxyip, headers=self.headers)
             html = r.text
             html_lines = html.splitlines()
             for l in html_lines:
-                if cc_line_found == True:
-                    cc = l.split('(', 1)[1].split(')', 1)[0]
-                    break
-                if 'country code:' in l.lower():
+
+                if 'country:' in l:
                     cc_line_found = True
-        except:
-            pass
+                    l=l.replace(" ", "")
+                    l=l.replace("country:", "")
+                    cc=l
+                    break
+
+        except NameError :
+         pass
+
         return cc
 
     def error_handler(self, e):
